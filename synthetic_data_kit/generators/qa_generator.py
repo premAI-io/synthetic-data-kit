@@ -11,6 +11,7 @@ import time
 import os
 from pathlib import Path
 from rich.progress import Progress, BarColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
+import random
 
 from synthetic_data_kit.models.llm_client import LLMClient
 from synthetic_data_kit.utils.text import split_into_chunks
@@ -41,7 +42,7 @@ class QAGenerator:
         prompt = get_prompt(self.config, "summary")
         
         messages = [
-            {"role": "system", "content": prompt},
+            {"role": "user", "content": prompt},
             {"role": "user", "content": document_text}
         ]
         
@@ -80,6 +81,8 @@ class QAGenerator:
             print(f"Using batch size of {batch_size}")
         
         all_qa_pairs = []
+        if num_pairs > len(chunks):
+            chunks = random.sample(chunks, num_pairs)
         pairs_per_chunk = max(1, round(num_pairs / len(chunks)))
         
         # Get QA generation prompt template

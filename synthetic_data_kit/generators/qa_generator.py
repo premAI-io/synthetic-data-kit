@@ -12,7 +12,7 @@ import os
 from pathlib import Path
 from rich.progress import Progress, BarColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
 import random
-
+from math import ceil
 from synthetic_data_kit.models.llm_client import LLMClient
 from synthetic_data_kit.utils.text import split_into_chunks
 from synthetic_data_kit.utils.llm_processing import parse_qa_pairs, parse_ratings, convert_to_conversation_format
@@ -82,8 +82,8 @@ class QAGenerator:
         
         all_qa_pairs = []
         if num_pairs < len(chunks):
-            chunks = random.sample(chunks, max(1, num_pairs//4))
-        pairs_per_chunk = max(1, round(num_pairs / len(chunks)))
+            chunks = random.sample(chunks, max(1, ceil(num_pairs/4)))
+        pairs_per_chunk = max(1, ceil(num_pairs / len(chunks)))
         
         # Get QA generation prompt template
         qa_prompt_template = get_prompt(self.config, "qa_generation")

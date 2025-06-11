@@ -81,8 +81,8 @@ class QAGenerator:
             print(f"Using batch size of {batch_size}")
         
         all_qa_pairs = []
-        if num_pairs > len(chunks):
-            chunks = random.sample(chunks, num_pairs)
+        if num_pairs < len(chunks):
+            chunks = random.sample(chunks, max(1, num_pairs//4))
         pairs_per_chunk = max(1, round(num_pairs / len(chunks)))
         
         # Get QA generation prompt template

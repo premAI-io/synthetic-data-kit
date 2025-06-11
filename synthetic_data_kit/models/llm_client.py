@@ -35,7 +35,9 @@ class LLMClient:
                  api_key: Optional[str] = None,
                  model_name: Optional[str] = None,
                  max_retries: Optional[int] = None,
-                 retry_delay: Optional[float] = None):
+                 retry_delay: Optional[float] = None,
+                 user_id: Optional[str] = None,
+                 completion_task: Optional[str] = None):
         """Initialize an LLM client that supports multiple providers
         
         Args:
@@ -46,9 +48,15 @@ class LLMClient:
             model_name: Override model name from config
             max_retries: Override max retries from config
             retry_delay: Override retry delay from config
+            user_id: User ID for API requests (for 'api-endpoint' provider)
+            completion_task: Completion task for API requests (for 'api-endpoint' provider)
         """
         # Load config
         self.config = load_config(config_path)
+        
+        # Store user_id and completion_task for API endpoint requests
+        self.user_id = user_id
+        self.completion_task = completion_task
         
         # Determine provider (with CLI override taking precedence)
         self.provider = provider or get_llm_provider(self.config)
@@ -113,6 +121,17 @@ class LLMClient:
             print(f"Using API base URL: {self.api_base}")
             client_kwargs['base_url'] = self.api_base
         
+        # Add default headers for user_id and completion_task
+        default_headers = {}
+        if self.user_id:
+            default_headers['x-user-id'] = self.user_id
+        if self.completion_task:
+            default_headers['x-completion-task'] = self.completion_task
+        
+        if default_headers:
+            client_kwargs['default_headers'] = default_headers
+            print(f"Using default headers: {default_headers}")
+        
         self.openai_client = OpenAI(**client_kwargs)
     
     def _check_vllm_server(self) -> tuple:
@@ -167,14 +186,29 @@ class LLMClient:
             
         for attempt in range(self.max_retries):
             try:
+                # Prepare extra headers
+                extra_headers = {}
+                if self.user_id:
+                    extra_headers['x-user-id'] = self.user_id
+                if self.completion_task:
+                    extra_headers['x-completion-task'] = self.completion_task
+                
                 # Create the completion request
-                response = self.openai_client.chat.completions.create(
-                    model=self.model,
-                    messages=messages,
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                    top_p=top_p
-                )
+                completion_kwargs = {
+                    'model': self.model,
+                    'messages': messages,
+                    'temperature': temperature,
+                    'max_tokens': max_tokens,
+                    'top_p': top_p
+                }
+                
+                # Add extra headers if any
+                if extra_headers:
+                    completion_kwargs['extra_headers'] = extra_headers
+                    if verbose:
+                        logger.info(f"Using extra headers: {extra_headers}")
+                
+                response = self.openai_client.chat.completions.create(**completion_kwargs)
                 
                 if verbose:
                     logger.info(f"Received response from {self.provider}")
@@ -365,13 +399,27 @@ class LLMClient:
                 
                 for attempt in range(self.max_retries):
                     try:
-                        response = self.openai_client.chat.completions.create(
-                            model=self.model,
-                            messages=messages,
-                            temperature=temperature,
-                            max_tokens=max_tokens,
-                            top_p=top_p
-                        )
+                        # Prepare extra headers
+                        extra_headers = {}
+                        if self.user_id:
+                            extra_headers['x-user-id'] = self.user_id
+                        if self.completion_task:
+                            extra_headers['x-completion-task'] = self.completion_task
+                        
+                        # Create the completion request
+                        completion_kwargs = {
+                            'model': self.model,
+                            'messages': messages,
+                            'temperature': temperature,
+                            'max_tokens': max_tokens,
+                            'top_p': top_p
+                        }
+                        
+                        # Add extra headers if any
+                        if extra_headers:
+                            completion_kwargs['extra_headers'] = extra_headers
+                        
+                        response = self.openai_client.chat.completions.create(**completion_kwargs)
                         
                         if verbose:
                             logger.info(f"Received response from {self.provider}")

@@ -42,7 +42,7 @@ class QAGenerator:
         prompt = get_prompt(self.config, "summary")
         
         messages = [
-            {"role": "user", "content": prompt},
+            {"role": "system", "content": prompt},
             {"role": "user", "content": document_text}
         ]
         
@@ -99,7 +99,7 @@ class QAGenerator:
             )
             
             messages = [
-                {"role": "system", "content": qa_prompt}
+                {"role": "user", "content": qa_prompt}
             ]
             all_messages.append(messages)
         

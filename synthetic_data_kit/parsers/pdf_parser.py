@@ -7,6 +7,8 @@
 import os
 from typing import Dict, Any
 
+from synthetic_data_kit.utils.text import clean_extracted_text
+
 class PDFParser:
     """Parser for PDF documents"""
     
@@ -19,11 +21,54 @@ class PDFParser:
         Returns:
             Extracted text from the PDF
         """
+        # Primary extraction using pdfminer
+        text = self._extract_with_pdfminer(file_path)
+        
+        # Clean the extracted text
+        text = clean_extracted_text(text)
+        
+        # If text is empty or very short, try OCR fallback
+        if not text or len(text.strip()) < 10:
+            text = self._extract_with_ocr_fallback(file_path)
+            text = clean_extracted_text(text)
+        
+        return text
+    
+    def _extract_with_pdfminer(self, file_path: str) -> str:
+        """Extract text using pdfminer"""
         try:
             from pdfminer.high_level import extract_text
             return extract_text(file_path)
         except ImportError:
             raise ImportError("pdfminer.six is required for PDF parsing. Install it with: pip install pdfminer.six")
+        except Exception:
+            # If pdfminer fails, return empty string to trigger fallback
+            return ""
+    
+    def _extract_with_ocr_fallback(self, file_path: str) -> str:
+        """Fallback OCR extraction using pdf2image and pytesseract"""
+        try:
+            from pdf2image import convert_from_path
+            import pytesseract
+            
+            # Convert PDF pages to images
+            images = convert_from_path(file_path)
+            
+            # Extract text from each image
+            text = ""
+            for image in images:
+                page_text = pytesseract.image_to_string(image)
+                text += page_text + "\n"
+            
+            return text
+            
+        except ImportError as e:
+            missing_lib = "pdf2image" if "pdf2image" in str(e) else "pytesseract"
+            print(f"Warning: {missing_lib} not available for OCR fallback. Install with: pip install {missing_lib}")
+            return ""
+        except Exception as e:
+            print(f"Warning: OCR fallback failed: {str(e)}")
+            return ""
     
     def save(self, content: str, output_path: str) -> None:
         """Save the extracted text to a file

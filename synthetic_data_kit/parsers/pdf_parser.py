@@ -46,30 +46,42 @@ class PDFParser:
             return ""
     
     def _extract_with_ocr_fallback(self, file_path: str) -> str:
-        """Fallback OCR extraction using pdf2image and pytesseract"""
+        """Fallback OCR extraction using PyMuPDF and pytesseract"""
         try:
-            from pdf2image import convert_from_path
+            import fitz  # PyMuPDF
             import pytesseract
+            from PIL import Image
+            import io
             
-            # Convert PDF pages to images
-            images = convert_from_path(file_path)
+            # Open the PDF document
+            doc = fitz.open(file_path)
             
-            # Extract text from each image
+            # Extract text from each page
             text = ""
-            for image in images:
+            for page_num in range(len(doc)):
+                page = doc.load_page(page_num)
+                
+                # Convert page to image
+                pix = page.get_pixmap()
+                img_data = pix.tobytes("png")
+                image = Image.open(io.BytesIO(img_data))
+                
+                # Extract text from image using OCR
                 page_text = pytesseract.image_to_string(image)
                 text += page_text + "\n"
             
+            doc.close()
             return text
             
         except ImportError as e:
-            missing_lib = "pdf2image" if "pdf2image" in str(e) else "pytesseract"
+            missing_lib = "PyMuPDF" if "fitz" in str(e) else "pytesseract"
             print(f"Warning: {missing_lib} not available for OCR fallback. Install with: pip install {missing_lib}")
             return ""
         except Exception as e:
             print(f"Warning: OCR fallback failed: {str(e)}")
             return ""
-    
+
+
     def save(self, content: str, output_path: str) -> None:
         """Save the extracted text to a file
         

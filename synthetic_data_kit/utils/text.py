@@ -32,7 +32,137 @@ def split_into_chunks(text: str, chunk_size: int = 4000, overlap: int = 200) -> 
     if current_chunk:
         chunks.append(current_chunk)
     
+    # Fallback: split chunks that are still too long using sentence boundaries
+    final_chunks = []
+    for chunk in chunks:
+        if len(chunk) <= chunk_size:
+            final_chunks.append(chunk)
+        else:
+            sub_chunks = _split_long_chunk_by_sentences(chunk, chunk_size, overlap)
+            final_chunks.extend(sub_chunks)
+    
+    return final_chunks
+
+
+def _split_long_chunk_by_sentences(chunk: str, chunk_size: int, overlap: int) -> List[str]:
+    """Split a long chunk by finding closest sentence boundaries to chunk_size"""
+    sentences = chunk.split('. ')
+    
+    # If no sentence separators found, fall back to word boundaries
+    if len(sentences) == 1:
+        return _split_by_words(chunk, chunk_size, overlap)
+    
+    chunks = []
+    current_text = ""
+    
+    i = 0
+    while i < len(sentences):
+        sentence = sentences[i]
+        # Restore the period (except potentially for the last sentence)
+        if i < len(sentences) - 1:
+            sentence_with_period = sentence + '. '
+        else:
+            sentence_with_period = sentence
+        
+        # Check if adding this sentence would exceed chunk_size
+        if len(current_text) + len(sentence_with_period) > chunk_size and current_text:
+            # Save current chunk
+            chunks.append(current_text.strip())
+            
+            # Start new chunk with overlap
+            overlap_text = _get_sentence_overlap(current_text, overlap)
+            current_text = overlap_text + sentence_with_period
+        else:
+            current_text += sentence_with_period
+        
+        i += 1
+    
+    # Add the remaining text as the last chunk
+    if current_text.strip():
+        chunks.append(current_text.strip())
+    
     return chunks
+
+
+def _split_by_words(text: str, chunk_size: int, overlap: int) -> List[str]:
+    """Split text by words when no sentence separators are available"""
+    words = text.split()
+    chunks = []
+    current_text = ""
+    
+    i = 0
+    while i < len(words):
+        word = words[i]
+        word_with_space = word + (' ' if i < len(words) - 1 else '')
+        
+        # Check if adding this word would exceed chunk_size
+        if len(current_text) + len(word_with_space) > chunk_size and current_text:
+            # Save current chunk
+            chunks.append(current_text.strip())
+            
+            # Start new chunk with overlap
+            overlap_text = _get_word_overlap(current_text, overlap)
+            current_text = overlap_text + word_with_space
+        else:
+            current_text += word_with_space
+        
+        i += 1
+    
+    # Add the remaining text as the last chunk
+    if current_text.strip():
+        chunks.append(current_text.strip())
+    
+    return chunks
+
+
+def _get_sentence_overlap(text: str, target_overlap: int) -> str:
+    """Get overlap text from the end of a chunk using sentence boundaries"""
+    if len(text) <= target_overlap:
+        return text
+    
+    sentences = text.split('. ')
+    if len(sentences) <= 1:
+        # No sentence boundaries, use character overlap
+        return text[-target_overlap:] + ' '
+    
+    # Build overlap from the end
+    overlap_sentences = []
+    current_length = 0
+    
+    for i in range(len(sentences) - 1, -1, -1):
+        sentence = sentences[i]
+        if i < len(sentences) - 1:
+            sentence_with_period = sentence + '. '
+        else:
+            sentence_with_period = sentence
+        
+        if current_length + len(sentence_with_period) <= target_overlap:
+            overlap_sentences.insert(0, sentence_with_period)
+            current_length += len(sentence_with_period)
+        else:
+            break
+    
+    return ''.join(overlap_sentences) if overlap_sentences else text[-target_overlap:] + ' '
+
+
+def _get_word_overlap(text: str, target_overlap: int) -> str:
+    """Get overlap text from the end of a chunk using word boundaries"""
+    if len(text) <= target_overlap:
+        return text
+    
+    words = text.split()
+    overlap_words = []
+    current_length = 0
+    
+    for word in reversed(words):
+        word_with_space = word + ' '
+        if current_length + len(word_with_space) <= target_overlap:
+            overlap_words.insert(0, word_with_space)
+            current_length += len(word_with_space)
+        else:
+            break
+    
+    return ''.join(overlap_words) if overlap_words else text[-target_overlap:] + ' '
 
 def extract_json_from_text(text: str) -> Dict[str, Any]:
     """Extract JSON from text that might contain markdown or other content"""

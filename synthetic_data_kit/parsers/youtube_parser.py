@@ -23,6 +23,7 @@ class YouTubeParser:
         try:
             from pytubefix import YouTube
             from youtube_transcript_api import YouTubeTranscriptApi
+            from youtube_transcript_api.proxies import WebshareProxyConfig
         except ImportError:
             raise ImportError(
                 "pytube and youtube-transcript-api are required for YouTube parsing. "
@@ -32,9 +33,15 @@ class YouTubeParser:
         # Extract video ID from URL
         yt = YouTube(url)
         video_id = yt.video_id
-        
+        ytt_api = YouTubeTranscriptApi(
+            proxy_config=WebshareProxyConfig(
+                proxy_username=os.getenv("WEBSHARE_PROXY_USERNAME"),
+                proxy_password=os.getenv("WEBSHARE_PROXY_PASSWORD"),
+            )
+        )
+
         # Get transcript
-        transcript = YouTubeTranscriptApi.get_transcript(video_id)
+        transcript = ytt_api.fetch(video_id)
         
         # Combine transcript segments
         combined_text = []

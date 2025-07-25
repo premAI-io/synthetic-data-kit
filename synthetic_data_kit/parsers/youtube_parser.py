@@ -46,7 +46,7 @@ class YouTubeParser:
         # Combine transcript segments
         combined_text = []
         for segment in transcript:
-            combined_text.append(segment['text'])
+            combined_text.append(segment.text)
         
         # Add video metadata
         metadata = (

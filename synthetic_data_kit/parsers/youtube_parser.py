@@ -7,6 +7,25 @@
 
 import os
 from typing import Dict, Any
+import re
+
+def extract_youtube_id(url):
+    """Extract the YouTube video ID from a given URL."""
+    # Patterns for common YouTube URL types
+    patterns = [
+        r'(?:https?://)?(?:www\.)?youtu\.be/([^&#?/]+)',
+        r'(?:https?://)?(?:www\.)?youtube\.com/watch\?v=([^&#?/]+)',
+        r'(?:https?://)?(?:www\.)?youtube\.com/embed/([^&#?/]+)',
+        r'(?:https?://)?(?:www\.)?youtube\.com/v/([^&#?/]+)',
+        r'(?:https?://)?(?:www\.)?youtube\.com/shorts/([^&#?/]+)'
+    ]
+
+    for pattern in patterns:
+        match = re.search(pattern, url)
+        if match:
+            return match.group(1)
+    return None
+
 
 class YouTubeParser:
     """Parser for YouTube transcripts"""
@@ -21,7 +40,6 @@ class YouTubeParser:
             Transcript text
         """
         try:
-            from pytubefix import YouTube
             from youtube_transcript_api import YouTubeTranscriptApi
             from youtube_transcript_api.proxies import WebshareProxyConfig
         except ImportError:
@@ -31,8 +49,10 @@ class YouTubeParser:
             )
         
         # Extract video ID from URL
-        yt = YouTube(url)
-        video_id = yt.video_id
+        video_id = extract_youtube_id(url)
+        if not video_id:
+            raise ValueError(f"Invalid YouTube URL: {url}")
+        
         ytt_api = YouTubeTranscriptApi(
             proxy_config=WebshareProxyConfig(
                 proxy_username=os.getenv("WEBSHARE_PROXY_USERNAME"),
@@ -48,16 +68,7 @@ class YouTubeParser:
         for segment in transcript:
             combined_text.append(segment.text)
         
-        # Add video metadata
-        metadata = (
-            f"Title: {yt.title}\n"
-            f"Author: {yt.author}\n"
-            f"Length: {yt.length} seconds\n"
-            f"URL: {url}\n\n"
-            f"Transcript:\n"
-        )
-        
-        return metadata + "\n".join(combined_text)
+        return "\n".join(combined_text)
     
     def save(self, content: str, output_path: str) -> None:
         """Save the transcript to a file

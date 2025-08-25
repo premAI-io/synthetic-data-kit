@@ -91,12 +91,28 @@ class QAGenerator:
         # Prepare all message batches
         all_messages = []
         for i, chunk in enumerate(chunks):
-            # Format the prompt with summary and text
-            qa_prompt = qa_prompt_template.format(
-                num_pairs=pairs_per_chunk,
-                summary=summary[:100],
-                text=chunk
-            )
+            # Safely format the prompt by handling JSON content properly
+            try:
+                qa_prompt = qa_prompt_template.format(
+                    num_pairs=pairs_per_chunk,
+                    summary=summary[:100],
+                    text=chunk
+                )
+            except (KeyError, ValueError) as e:
+                # If formatting fails due to unescaped braces in JSON examples,
+                # use a more robust approach
+                import re
+                
+                # Temporarily replace format placeholders with unique markers
+                temp_template = qa_prompt_template
+                temp_template = temp_template.replace('{num_pairs}', '___NUM_PAIRS___')
+                temp_template = temp_template.replace('{summary}', '___SUMMARY___')  
+                temp_template = temp_template.replace('{text}', '___TEXT___')
+                
+                # Now replace the markers with actual values
+                qa_prompt = temp_template.replace('___NUM_PAIRS___', str(pairs_per_chunk))
+                qa_prompt = qa_prompt.replace('___SUMMARY___', summary[:100])
+                qa_prompt = qa_prompt.replace('___TEXT___', chunk)
             
             messages = [
                 {"role": "user", "content": qa_prompt}
